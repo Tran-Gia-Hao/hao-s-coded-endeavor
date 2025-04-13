@@ -9,11 +9,11 @@ import { ArrowLeft, ChefHat, Clock } from 'lucide-react';
 import FilterBar from '@/components/FilterBar';
 import OrderCard from '@/components/OrderCard';
 import OrderDetail from '@/components/OrderDetail';
-import { mockOrders } from '@/data/mockData';
 import { Order, OrderStatus, ItemStatus } from '@/models/types';
+import { useRestaurantContext } from '@/context/RestaurantContext';
 
 const KitchenPage = () => {
-  const [orders, setOrders] = useState<Order[]>(mockOrders);
+  const { orders, updateItemStatus, updateOrderStatus } = useRestaurantContext();
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -49,64 +49,50 @@ const KitchenPage = () => {
   };
 
   const handleUpdateItemStatus = (orderId: string, itemId: string, newStatus: ItemStatus) => {
-    setOrders(orders.map(order => {
-      if (order.id === orderId) {
-        const updatedItems = order.items.map(item => 
-          item.id === itemId ? { ...item, status: newStatus, updatedAt: new Date() } : item
-        );
-        
-        // If all items are at least 'ready', update the order status to 'ready'
-        let newOrderStatus = order.status;
-        if (newStatus === 'ready' && updatedItems.every(item => item.status === 'ready')) {
-          newOrderStatus = 'ready';
-        } else if (newStatus === 'cooking' && order.status === 'pending') {
-          newOrderStatus = 'cooking';
-        }
-        
-        return {
-          ...order,
-          items: updatedItems,
-          status: newOrderStatus,
-          updatedAt: new Date()
-        };
-      }
-      return order;
-    }));
+    updateItemStatus(orderId, itemId, newStatus);
     
-    toast({
-      title: "Item Updated",
-      description: `Item status changed to ${newStatus}`,
-      duration: 2000
-    });
+    // Cập nhật selectedOrder để UI hiển thị đúng
+    if (selectedOrder && selectedOrder.id === orderId) {
+      const updatedItems = selectedOrder.items.map(item => 
+        item.id === itemId ? { ...item, status: newStatus, updatedAt: new Date() } : item
+      );
+      
+      let newOrderStatus = selectedOrder.status;
+      if (newStatus === 'ready' && updatedItems.every(item => item.status === 'ready')) {
+        newOrderStatus = 'ready';
+      } else if (newStatus === 'cooking' && selectedOrder.status === 'pending') {
+        newOrderStatus = 'cooking';
+      }
+      
+      setSelectedOrder({
+        ...selectedOrder,
+        items: updatedItems,
+        status: newOrderStatus,
+        updatedAt: new Date()
+      });
+    }
   };
 
   const handleUpdateOrderStatus = (orderId: string, newStatus: OrderStatus) => {
-    setOrders(orders.map(order => {
-      if (order.id === orderId) {
-        // Update all pending items to cooking, or all cooking items to ready
-        const updatedItems = order.items.map(item => {
-          if ((order.status === 'pending' && item.status === 'pending' && newStatus === 'cooking') ||
-              (order.status === 'cooking' && item.status === 'cooking' && newStatus === 'ready')) {
-            return { ...item, status: newStatus as ItemStatus, updatedAt: new Date() };
-          }
-          return item;
-        });
-        
-        return {
-          ...order,
-          items: updatedItems,
-          status: newStatus,
-          updatedAt: new Date()
-        };
-      }
-      return order;
-    }));
+    updateOrderStatus(orderId, newStatus);
     
-    toast({
-      title: "Order Updated",
-      description: `Order status changed to ${newStatus}`,
-      duration: 2000
-    });
+    // Cập nhật selectedOrder để UI hiển thị đúng
+    if (selectedOrder && selectedOrder.id === orderId) {
+      const updatedItems = selectedOrder.items.map(item => {
+        if ((selectedOrder.status === 'pending' && item.status === 'pending' && newStatus === 'cooking') ||
+            (selectedOrder.status === 'cooking' && item.status === 'cooking' && newStatus === 'ready')) {
+          return { ...item, status: newStatus as ItemStatus, updatedAt: new Date() };
+        }
+        return item;
+      });
+      
+      setSelectedOrder({
+        ...selectedOrder,
+        items: updatedItems,
+        status: newStatus,
+        updatedAt: new Date()
+      });
+    }
 
     // Close the detail modal if the order is now ready
     if (newStatus === 'ready') {
