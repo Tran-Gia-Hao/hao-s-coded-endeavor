@@ -1,339 +1,136 @@
 import React, { useState, useEffect } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { useToast } from "@/hooks/use-toast";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Link } from 'react-router-dom';
-import { HomeIcon, MenuIcon, History, ArrowLeft, Minus, Plus } from 'lucide-react';
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import MenuItemCard from '@/components/MenuItemCard';
-import OrderCart from '@/components/OrderCart';
-import OrderDetail from '@/components/OrderDetail';
+import { ArrowLeft, ShoppingCart, Plus, Minus, Trash2, Search, Filter, User } from 'lucide-react';
+import { MenuItem, OrderItem, Order } from '@/models/types';
 import { menuItems } from '@/data/mockData';
-import { MenuItem, Order, OrderItem, OrderStatus } from '@/models/types';
-import { v4 as uuidv4 } from 'uuid';
 import { useRestaurantContext } from '@/context/RestaurantContext';
-
-const buffetPackages: MenuItem[] = [
-  {
-    id: 'buffet-1',
-    name: 'Buffet Linh Vân Các',
-    description: 'Buffet lẩu-nướng cơ bản với các nguyên liệu tươi ngon, phù hợp với những người mới trải nghiệm lẩu-nướng.',
-    price: 229000,
-    category: 'Buffet Package',
-    available: true,
-    image: '/images/bfhvc.jpg'
-  },
-  {
-    id: 'buffet-2',
-    name: 'Buffet Phúc Khả Vương',
-    description: 'Buffet lẩu-nướng với nhiều loại thịt, hải sản và rau củ hơn. Phù hợp với các nhóm bạn và gia đình.',
-    price: 329000,
-    category: 'Buffet Package',
-    available: true,
-    image: '/images/bfpkv.jpg'
-  },
-  {
-    id: 'buffet-3',
-    name: 'Buffet Bách Giai Vị',
-    description: 'Buffet cao cấp với các loại thịt bò Mỹ, hải sản tươi sống và nước lẩu đặc biệt.',
-    price: 419000,
-    category: 'Buffet Package',
-    available: true,
-    image: '/images/bfbgv.jpg'
-  },
-  {
-    id: 'buffet-4',
-    name: 'Buffet Vạn Giai Kỳ',
-    description: 'Buffet thượng hạng với thịt bò Wagyu, hải sản cao cấp và nhiều món đặc biệt của nhà hàng.',
-    price: 499000,
-    category: 'Buffet Package',
-    available: true,
-    image: '/images/bfvgk.jpg'
-  },
-  {
-    id: 'buffet-5',
-    name: 'Buffet Phúc Mãn Đường',
-    description: 'Buffet đẳng cấp với thịt bò A5 Wagyu, hải sản nhập khẩu và phục vụ VIP với không gian sang trọng.',
-    price: 619000,
-    category: 'Buffet Package',
-    available: true,
-    image: '/images/bfpmd.jpg'
-  }
-];
+import { v4 as uuidv4 } from 'uuid';
+import { useToast } from '@/hooks/use-toast';
 
 const CustomerPage = () => {
-  const { addOrder, orders, lastUpdate } = useRestaurantContext();
   const [cartItems, setCartItems] = useState<OrderItem[]>([]);
-  const [tableNumber, setTableNumber] = useState(1);
-  const [activeCategory, setActiveCategory] = useState('All');
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [orderHistory, setOrderHistory] = useState<Order[]>([]);
-  const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [menuType, setMenuType] = useState<'a-la-carte' | 'buffet'>('a-la-carte');
-  const [selectedBuffet, setSelectedBuffet] = useState<string>('');
-  const [peopleCount, setPeopleCount] = useState(1);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isOrderConfirmOpen, setIsOrderConfirmOpen] = useState(false);
+  const [tableNumber, setTableNumber] = useState<number>(1);
+  const [editingItem, setEditingItem] = useState<OrderItem | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [itemNote, setItemNote] = useState('');
+  const { addOrder } = useRestaurantContext();
   const { toast } = useToast();
 
-  useEffect(() => {
-    setOrderHistory(orders.filter(order => order.tableNumber === tableNumber));
+  const categories = Array.from(new Set(menuItems.map(item => item.category)));
+
+  const filteredMenuItems = menuItems.filter(item => {
+    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         item.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = categoryFilter === null || item.category === categoryFilter;
+    return matchesSearch && matchesCategory;
+  });
+
+  const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  const subtotal = cartItems.reduce((sum, item) => sum + (item.menuItem.price * item.quantity), 0);
+  const tax = subtotal * 0.1; // 10% tax
+  const total = subtotal + tax;
+
+  const handleAddToCart = (menuItem: MenuItem) => {
+    const existingItemIndex = cartItems.findIndex(item => item.menuItem.id === menuItem.id);
     
-    if (selectedOrder) {
-      const updatedOrder = orders.find(o => o.id === selectedOrder.id);
-      if (updatedOrder) {
-        setSelectedOrder(updatedOrder);
-      }
-    }
-  }, [orders, lastUpdate, tableNumber, selectedOrder]);
-
-  const regularMenuItems = menuItems.filter(item => item.category !== 'Buffet Package');
-
-  const categories = ['All', ...Array.from(new Set(regularMenuItems.map(item => item.category)))];
-
-  const addToOrder = (item: MenuItem) => {
-    if (item.category === 'Buffet Package') {
-      setSelectedBuffet(item.name);
-      setMenuType('buffet');
-      setCartItems([]);
-      const buffetItem: OrderItem = {
+    if (existingItemIndex > -1) {
+      const updatedCartItems = [...cartItems];
+      updatedCartItems[existingItemIndex] = {
+        ...updatedCartItems[existingItemIndex],
+        quantity: updatedCartItems[existingItemIndex].quantity + 1
+      };
+      setCartItems(updatedCartItems);
+    } else {
+      const newCartItem: OrderItem = {
         id: uuidv4(),
-        menuItemId: item.id,
-        menuItem: {
-          ...item,
-          notes: `Buffet Package: ${peopleCount} người`
-        },
+        menuItem,
         quantity: 1,
         status: 'pending',
+        notes: '',
         createdAt: new Date(),
         updatedAt: new Date()
       };
-      setCartItems([buffetItem]);
-      toast({
-        title: "Gói buffet đã chọn",
-        description: `Bạn đã chọn ${item.name} với giá ${item.price.toLocaleString('vi-VN')}₫/người.`,
-        duration: 3000
-      });
-      return;
+      setCartItems([...cartItems, newCartItem]);
     }
-
-    if (menuType === 'buffet' && item.category !== 'Buffet Package') {
-      const existingItem = cartItems.find(cartItem =>
-        cartItem.menuItemId === item.id &&
-        cartItem.menuItem.category !== 'Buffet Package'
-      );
-
-      if (existingItem) {
-        setCartItems(cartItems.map(cartItem =>
-          cartItem.menuItemId === item.id && cartItem.menuItem.category !== 'Buffet Package'
-            ? { ...cartItem, quantity: cartItem.quantity + 1 }
-            : cartItem
-        ));
-      } else {
-        const newItem: OrderItem = {
-          id: uuidv4(),
-          menuItemId: item.id,
-          menuItem: item,
-          quantity: 1,
-          status: 'pending',
-          createdAt: new Date(),
-          updatedAt: new Date()
-        };
-
-        const buffetItem = cartItems.find(item => item.menuItem.category === 'Buffet Package');
-
-        if (buffetItem) {
-          setCartItems([buffetItem, ...cartItems.filter(item => item.menuItem.category !== 'Buffet Package'), newItem]);
-        } else {
-          setCartItems([...cartItems, newItem]);
-        }
-      }
-    } else {
-      const existingItem = cartItems.find(cartItem => cartItem.menuItemId === item.id);
-
-      if (existingItem) {
-        setCartItems(cartItems.map(cartItem =>
-          cartItem.menuItemId === item.id
-            ? { ...cartItem, quantity: cartItem.quantity + 1 }
-            : cartItem
-        ));
-      } else {
-        const newItem: OrderItem = {
-          id: uuidv4(),
-          menuItemId: item.id,
-          menuItem: item,
-          quantity: 1,
-          status: 'pending',
-          createdAt: new Date(),
-          updatedAt: new Date()
-        };
-        setCartItems([...cartItems, newItem]);
-      }
-    }
-
-    const message = menuType === 'buffet'
-      ? `${item.name} đã được chọn.`
-      : `${item.name} đã thêm vào giỏ hàng.`;
-
-    toast({
-      title: menuType === 'buffet' ? "Đã chọn món" : "Đã thêm vào giỏ hàng",
-      description: message,
-      duration: 2000
-    });
   };
 
-  const removeFromOrder = (itemId: string) => {
-    const item = cartItems.find(item => item.id === itemId);
-    if (menuType === 'buffet' && item?.menuItem.category === 'Buffet Package') {
-      toast({
-        title: "Không thể xóa gói buffet",
-        description: "Bạn cần chọn một gói buffet để đặt món",
-        variant: "destructive"
-      });
-      return;
+  const handleRemoveFromCart = (itemId: string) => {
+    const existingItemIndex = cartItems.findIndex(item => item.id === itemId);
+    
+    if (existingItemIndex > -1) {
+      const item = cartItems[existingItemIndex];
+      
+      if (item.quantity > 1) {
+        // Decrease quantity
+        const updatedCartItems = [...cartItems];
+        updatedCartItems[existingItemIndex] = {
+          ...updatedCartItems[existingItemIndex],
+          quantity: updatedCartItems[existingItemIndex].quantity - 1
+        };
+        setCartItems(updatedCartItems);
+      } else {
+        // Remove item
+        setCartItems(cartItems.filter(item => item.id !== itemId));
+      }
     }
+  };
 
+  const handleDeleteFromCart = (itemId: string) => {
     setCartItems(cartItems.filter(item => item.id !== itemId));
   };
 
-  const updateQuantity = (itemId: string, quantity: number) => {
-    const item = cartItems.find(item => item.id === itemId);
-    if (menuType === 'buffet' && item?.menuItem.category === 'Buffet Package') {
-      return;
-    }
-
-    setCartItems(cartItems.map(item =>
-      item.id === itemId ? { ...item, quantity } : item
-    ));
+  const handleEditItem = (item: OrderItem) => {
+    setEditingItem(item);
+    setItemNote(item.notes || '');
+    setIsEditDialogOpen(true);
   };
 
-  const addNote = (itemId: string, note: string) => {
-    setCartItems(cartItems.map(item =>
-      item.id === itemId ? { ...item, notes: note } : item
-    ));
-  };
-
-  const submitOrder = () => {
-    const hasBuffetPackage = menuType === 'buffet' && cartItems.some(item => item.menuItem.category === 'Buffet Package');
-
-    if (menuType === 'buffet' && !hasBuffetPackage) {
-      toast({
-        title: "Chưa chọn gói buffet",
-        description: "Vui lòng chọn một gói buffet trước khi đặt món",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (menuType === 'a-la-carte' && cartItems.length === 0) {
-      toast({
-        title: "Giỏ hàng trống",
-        description: "Vui lòng thêm món vào giỏ hàng trước khi đặt",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    let totalPrice = 0;
-
-    if (menuType === 'buffet') {
-      const selectedPackage = buffetPackages.find(pkg => pkg.name === selectedBuffet);
-      if (selectedPackage) {
-        totalPrice = selectedPackage.price * peopleCount;
-      }
-
-      setCartItems(items => items.map(item =>
-        item.menuItem.category === 'Buffet Package'
-          ? { ...item, menuItem: { ...item.menuItem, notes: `${peopleCount} người` }}
+  const handleSaveItemNote = () => {
+    if (editingItem) {
+      const updatedCartItems = cartItems.map(item => 
+        item.id === editingItem.id 
+          ? { ...item, notes: itemNote } 
           : item
-      ));
-    } else {
-      totalPrice = cartItems.reduce((sum, item) => sum + (item.menuItem.price * item.quantity), 0);
+      );
+      setCartItems(updatedCartItems);
+      setIsEditDialogOpen(false);
+      setEditingItem(null);
     }
+  };
 
-    const newOrder = {
+  const handlePlaceOrder = () => {
+    if (cartItems.length === 0) return;
+    
+    const newOrder: Omit<Order, 'id' | 'createdAt' | 'updatedAt'> = {
       tableNumber,
       items: cartItems,
-      status: 'pending' as OrderStatus,
-      totalPrice
+      status: 'pending',
+      totalPrice: total
     };
-
+    
     addOrder(newOrder);
-
-    if (menuType === 'buffet') {
-      const buffetItem = cartItems.find(item => item.menuItem.category === 'Buffet Package');
-      if (buffetItem) {
-        setCartItems([buffetItem]);
-      } else {
-        setCartItems([]);
-      }
-    } else {
-      setCartItems([]);
-    }
-
+    
     toast({
-      title: "Đã đặt món!",
-      description: `Đơn hàng mới đã được đặt thành công.`,
-      variant: "default"
+      title: "Đặt hàng thành công!",
+      description: `Đơn hàng của bạn đã được gửi đến nhà bếp. Vui lòng đợi trong giây lát.`,
     });
-  };
-
-  const viewOrderDetails = (order: Order) => {
-    setSelectedOrder(order);
-    setIsDetailOpen(true);
-  };
-
-  const closeOrderDetails = () => {
-    setIsDetailOpen(false);
-    setSelectedOrder(null);
-  };
-
-  const handleMenuTypeChange = (value: 'a-la-carte' | 'buffet') => {
-    setMenuType(value);
-    if (value === 'a-la-carte') {
-      setSelectedBuffet('');
-      setCartItems([]);
-      setActiveCategory('All');
-    }
-    else if (value === 'buffet' && !selectedBuffet) {
-      setSelectedBuffet(buffetPackages[0].name);
-
-      const buffetItem: OrderItem = {
-        id: uuidv4(),
-        menuItemId: buffetPackages[0].id,
-        menuItem: {
-          ...buffetPackages[0],
-          notes: `${peopleCount} người`
-        },
-        quantity: 1,
-        status: 'pending',
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
-
-      setCartItems([buffetItem]);
-    }
-  };
-
-  const handlePeopleCountChange = (count: number) => {
-    setPeopleCount(Math.max(1, count));
-
-    const buffetItem = cartItems.find(item => item.menuItem.category === 'Buffet Package');
-    if (buffetItem) {
-      setCartItems(items => items.map(item =>
-        item.menuItem.category === 'Buffet Package'
-          ? {
-              ...item,
-              menuItem: {
-                ...item.menuItem,
-                notes: `${count} người`
-              }
-            }
-          : item
-      ));
-    }
+    
+    // Reset cart
+    setCartItems([]);
+    setIsOrderConfirmOpen(false);
+    setIsCartOpen(false);
   };
 
   return (
@@ -346,188 +143,272 @@ const CustomerPage = () => {
                 <ArrowLeft className="h-5 w-5" />
               </Button>
             </Link>
-            <h1 className="text-xl font-bold text-restaurant-secondary">Cook & Serve</h1>
-            <div className="w-9"></div>
+            <h1 className="text-xl font-bold text-restaurant-secondary">Thực đơn</h1>
+            <Button 
+              variant="outline" 
+              size="icon"
+              className="relative"
+              onClick={() => setIsCartOpen(true)}
+            >
+              <ShoppingCart className="h-5 w-5" />
+              {totalItems > 0 && (
+                <Badge className="absolute -top-2 -right-2 bg-restaurant-primary">
+                  {totalItems}
+                </Badge>
+              )}
+            </Button>
           </div>
         </div>
       </header>
-
+      
       <main className="container mx-auto px-4 py-6">
-        <Tabs defaultValue="menu" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-6">
-            <TabsTrigger value="menu" className="flex items-center">
-              <MenuIcon className="mr-2 h-4 w-4" />
-              Menu
-            </TabsTrigger>
-            <TabsTrigger value="orders" className="flex items-center">
-              <History className="mr-2 h-4 w-4" />
-              Orders
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="menu">
-            <Card className="mb-4">
-              <CardContent className="pt-6">
-                <div className="text-lg font-medium mb-2">Lựa chọn kiểu gọi món:</div>
-                <RadioGroup
-                  value={menuType}
-                  onValueChange={(value) => handleMenuTypeChange(value as 'a-la-carte' | 'buffet')}
-                  className="flex space-x-4"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="a-la-carte" id="a-la-carte" />
-                    <label htmlFor="a-la-carte" className="cursor-pointer">
-                      Gọi món (À la carte)
-                    </label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="buffet" id="buffet" />
-                    <label htmlFor="buffet" className="cursor-pointer">
-                      Buffet
-                    </label>
-                  </div>
-                </RadioGroup>
+        <Card className="mb-6 bg-blue-50 border-blue-200">
+          <CardContent className="p-4">
+            <h2 className="text-lg font-medium text-blue-800 mb-2 flex items-center">
+              <User className="h-5 w-5 mr-2" /> Chào mừng quý khách
+            </h2>
+            <p className="text-blue-700">
+              Quý khách có thể duyệt thực đơn và đặt món trực tiếp từ thiết bị này.
+              Nhân viên của chúng tôi sẽ phục vụ món ăn đến bàn của quý khách trong thời gian sớm nhất.
+            </p>
+          </CardContent>
+        </Card>
+        
+        <div className="flex flex-col md:flex-row gap-4 mb-6">
+          <div className="relative flex-grow">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <Input
+              className="pl-10"
+              placeholder="Tìm kiếm món ăn..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            <Button
+              variant={categoryFilter === null ? "default" : "outline"}
+              size="sm"
+              onClick={() => setCategoryFilter(null)}
+              className="whitespace-nowrap"
+            >
+              <Filter className="h-4 w-4 mr-1" /> Tất cả
+            </Button>
+            {categories.map(category => (
+              <Button
+                key={category}
+                variant={categoryFilter === category ? "default" : "outline"}
+                size="sm"
+                onClick={() => setCategoryFilter(category)}
+                className="whitespace-nowrap"
+              >
+                {category}
+              </Button>
+            ))}
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredMenuItems.map(item => (
+            <Card key={item.id} className="overflow-hidden hover:shadow-md transition-shadow">
+              <div className="aspect-video w-full overflow-hidden bg-gray-100">
+                <img 
+                  src={item.image} 
+                  alt={item.name} 
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <CardContent className="p-4">
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className="font-semibold text-lg">{item.name}</h3>
+                  <Badge variant="outline" className="bg-restaurant-secondary/10">
+                    {item.category}
+                  </Badge>
+                </div>
+                <p className="text-sm text-gray-500 mb-3 line-clamp-2">{item.description}</p>
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-restaurant-primary">
+                    {item.price.toLocaleString('vi-VN')}đ
+                  </span>
+                  <Button 
+                    size="sm" 
+                    className="bg-restaurant-primary hover:bg-restaurant-primary/90"
+                    onClick={() => handleAddToCart(item)}
+                  >
+                    <Plus className="h-4 w-4 mr-1" /> Thêm vào giỏ
+                  </Button>
+                </div>
               </CardContent>
             </Card>
-            {menuType === 'buffet' ? (
-              <div className="mb-6">
-                <h2 className="text-lg font-semibold mb-3">Chọn gói Buffet:</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {buffetPackages.map(pkg => (
-                    <MenuItemCard
-                      key={pkg.id}
-                      item={pkg}
-                      onAddToOrder={addToOrder}
-                      menuType={menuType}
-                      buffetOption={selectedBuffet}
-                    />
-                  ))}
-                </div>
-                <Separator className="my-6" />
-              </div>
-            ) : (
-              <div className="mb-6">
-                <ScrollArea className="h-12 whitespace-nowrap pb-2 mb-6">
-                  <div className="flex space-x-2">
-                    {categories.map(category => (
-                      <Button
-                        key={category}
-                        variant={activeCategory === category ? "default" : "outline"}
-                        onClick={() => setActiveCategory(category)}
-                        className={activeCategory === category ? "button-primary" : ""}
+          ))}
+        </div>
+      </main>
+      
+      {/* Cart Sidebar */}
+      <Dialog open={isCartOpen} onOpenChange={setIsCartOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Giỏ hàng của bạn</DialogTitle>
+          </DialogHeader>
+          
+          {cartItems.length === 0 ? (
+            <div className="py-6 text-center text-gray-500">
+              Giỏ hàng của bạn đang trống
+            </div>
+          ) : (
+            <>
+              <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+                {cartItems.map(item => (
+                  <div key={item.id} className="flex justify-between items-start border-b pb-3">
+                    <div className="flex-1">
+                      <h4 className="font-medium">{item.menuItem.name}</h4>
+                      <p className="text-sm text-gray-500">
+                        {item.menuItem.price.toLocaleString('vi-VN')}đ
+                      </p>
+                      {item.notes && (
+                        <p className="text-xs italic mt-1 text-gray-500">
+                          Ghi chú: {item.notes}
+                        </p>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      <Button 
+                        variant="outline" 
+                        size="icon" 
+                        className="h-7 w-7"
+                        onClick={() => handleRemoveFromCart(item.id)}
                       >
-                        {category}
+                        <Minus className="h-3 w-3" />
                       </Button>
-                    ))}
+                      
+                      <span className="w-5 text-center">{item.quantity}</span>
+                      
+                      <Button 
+                        variant="outline" 
+                        size="icon" 
+                        className="h-7 w-7"
+                        onClick={() => handleAddToCart(item.menuItem)}
+                      >
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                      
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-7 w-7 text-gray-400 hover:text-red-500"
+                        onClick={() => handleDeleteFromCart(item.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                      
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => handleEditItem(item)}
+                      >
+                        Ghi chú
+                      </Button>
+                    </div>
                   </div>
-                </ScrollArea>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pb-20">
-                  {regularMenuItems
-                    .filter(item => activeCategory === 'All' || item.category === activeCategory)
-                    .map(item => (
-                      <MenuItemCard
-                        key={item.id}
-                        item={item}
-                        onAddToOrder={addToOrder}
-                        menuType={menuType}
-                      />
-                    ))
-                  }
-                </div>
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="orders">
-            {orderHistory.length === 0 ? (
-              <Card>
-                <CardContent className="py-8 text-center">
-                  <p className="mb-4 text-gray-500">You haven't placed any orders yet.</p>
-                  <Button
-                    onClick={() => document.querySelector('[data-value="menu"]')?.dispatchEvent(new Event('click'))}
-                    className="button-primary"
-                  >
-                    Browse Menu
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-4 pb-20">
-                {orderHistory.map(order => (
-                  <Card key={order.id} className="animate-fade-in">
-                    <CardContent className="p-4">
-                      <div className="flex justify-between items-center mb-2">
-                        <div>
-                          <span className="text-gray-500 text-sm">Order #{order.id.slice(0, 8)}</span>
-                          <div className="font-semibold">Table {order.tableNumber}</div>
-                        </div>
-                        <Badge className={`badge-${order.status}`}>
-                          {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                        </Badge>
-                      </div>
-
-                      <div className="text-sm text-gray-500 mb-2">
-                        {new Date(order.createdAt).toLocaleString()}
-                      </div>
-
-                      <Separator className="my-2" />
-
-                      <div className="space-y-1 mb-2">
-                        <div className="text-sm font-medium">Order Summary</div>
-                        <ul className="text-sm">
-                          {order.items.slice(0, 3).map((item, index) => (
-                            <li key={index}>
-                              {item.menuItem.category === 'Buffet Package'
-                                ? `${item.menuItem.name} - ${item.menuItem.notes}`
-                                : `${item.quantity}x ${item.menuItem.name}`}
-                            </li>
-                          ))}
-                          {order.items.length > 3 && (
-                            <li className="text-gray-500">+{order.items.length - 3} more items</li>
-                          )}
-                        </ul>
-                      </div>
-
-                      <div className="flex justify-between">
-                        <div className="font-semibold">Total</div>
-                        <div className="font-semibold">{order.totalPrice.toLocaleString('vi-VN')} ₫</div>
-                      </div>
-
-                      <Button
-                        className="w-full mt-3 button-primary"
-                        onClick={() => viewOrderDetails(order)}
-                      >
-                        View Details
-                      </Button>
-                    </CardContent>
-                  </Card>
                 ))}
               </div>
-            )}
-          </TabsContent>
-        </Tabs>
-      </main>
-
-      <OrderCart
-        items={cartItems}
-        onRemoveItem={removeFromOrder}
-        onUpdateQuantity={updateQuantity}
-        onAddNote={addNote}
-        onSubmitOrder={submitOrder}
-        tableNumber={tableNumber}
-        onTableNumberChange={setTableNumber}
-        menuType={menuType}
-        peopleCount={peopleCount}
-        onPeopleCountChange={handlePeopleCountChange}
-      />
-
-      <OrderDetail
-        order={selectedOrder}
-        isOpen={isDetailOpen}
-        onClose={closeOrderDetails}
-        userRole="customer"
-      />
+              
+              <Separator />
+              
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Tạm tính:</span>
+                  <span>{subtotal.toLocaleString('vi-VN')}đ</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Thuế (10%):</span>
+                  <span>{tax.toLocaleString('vi-VN')}đ</span>
+                </div>
+                <div className="flex justify-between font-bold">
+                  <span>Tổng cộng:</span>
+                  <span>{total.toLocaleString('vi-VN')}đ</span>
+                </div>
+              </div>
+              
+              <DialogFooter>
+                <Button 
+                  className="w-full bg-restaurant-primary hover:bg-restaurant-primary/90"
+                  onClick={() => setIsOrderConfirmOpen(true)}
+                >
+                  Đặt món
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+      
+      {/* Edit Item Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Thêm ghi chú cho món ăn</DialogTitle>
+          </DialogHeader>
+          
+          {editingItem && (
+            <>
+              <div className="mb-4">
+                <h4 className="font-medium">{editingItem.menuItem.name}</h4>
+                <p className="text-sm text-gray-500">
+                  Số lượng: {editingItem.quantity}
+                </p>
+              </div>
+              
+              <Textarea
+                placeholder="Ví dụ: Không hành, ít cay, v.v."
+                value={itemNote}
+                onChange={(e) => setItemNote(e.target.value)}
+                rows={3}
+              />
+              
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                  Hủy
+                </Button>
+                <Button onClick={handleSaveItemNote}>
+                  Lưu ghi chú
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+      
+      {/* Order Confirmation Dialog */}
+      <AlertDialog open={isOrderConfirmOpen} onOpenChange={setIsOrderConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xác nhận đặt món</AlertDialogTitle>
+            <AlertDialogDescription>
+              Vui lòng xác nhận số bàn của bạn để hoàn tất đặt món.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <div className="py-4">
+            <label className="text-sm font-medium">Số bàn</label>
+            <Input
+              type="number"
+              min="1"
+              value={tableNumber}
+              onChange={(e) => setTableNumber(parseInt(e.target.value) || 1)}
+              className="mt-1"
+            />
+          </div>
+          
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction onClick={handlePlaceOrder}>
+              Xác nhận đặt món
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
