@@ -13,7 +13,7 @@ import MenuItemCard from '@/components/MenuItemCard';
 import OrderCart from '@/components/OrderCart';
 import OrderDetail from '@/components/OrderDetail';
 import { menuItems } from '@/data/mockData';
-import { MenuItem, Order, OrderItem } from '@/models/types';
+import { MenuItem, Order, OrderItem, OrderStatus } from '@/models/types';
 import { v4 as uuidv4 } from 'uuid';
 import { useRestaurantContext } from '@/context/RestaurantContext';
 
@@ -256,7 +256,7 @@ const CustomerPage = () => {
     const newOrder = {
       tableNumber,
       items: cartItems,
-      status: 'pending',
+      status: 'pending' as OrderStatus,
       totalPrice
     };
 
@@ -275,7 +275,7 @@ const CustomerPage = () => {
 
     toast({
       title: "Đã đặt món!",
-      description: `Đơn hàng #${newOrder.id?.slice(0, 8) || 'mới'} đã được đặt thành công.`,
+      description: `Đơn hàng mới đã được đặt thành công.`,
       variant: "default"
     });
   };
