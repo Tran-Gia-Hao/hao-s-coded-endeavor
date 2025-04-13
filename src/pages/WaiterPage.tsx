@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -9,13 +8,13 @@ import { HomeIcon, TableIcon, ClipboardList, Plus, ArrowLeft, UserIcon } from 'l
 import FilterBar from '@/components/FilterBar';
 import OrderCard from '@/components/OrderCard';
 import OrderDetail from '@/components/OrderDetail';
-import { mockOrders, generateMockOrders } from '@/data/mockData';
 import { Order, OrderStatus, ItemStatus } from '@/models/types';
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { useRestaurantContext } from '@/context/RestaurantContext';
 
 const WaiterPage = () => {
-  const [orders, setOrders] = useState<Order[]>(mockOrders);
+  const { orders, updateItemStatus, updateOrderStatus, addOrder, lastUpdate } = useRestaurantContext();
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -24,18 +23,24 @@ const WaiterPage = () => {
   const [activeTab, setActiveTab] = useState<'orders' | 'tasks'>('orders');
   const { toast } = useToast();
 
+  useEffect(() => {
+    if (selectedOrder) {
+      const updatedOrder = orders.find(o => o.id === selectedOrder.id);
+      if (updatedOrder) {
+        setSelectedOrder(updatedOrder);
+      }
+    }
+  }, [orders, selectedOrder, lastUpdate]);
+
   const filteredOrders = orders
     .filter(order => {
-      // Search term filter
       const searchLower = searchTerm.toLowerCase();
       const matchesSearch = 
         order.id.toLowerCase().includes(searchLower) || 
         order.tableNumber.toString().includes(searchLower);
 
-      // Status filter
       const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
 
-      // Table filter
       const matchesTable = tableFilter === null || order.tableNumber === tableFilter;
 
       return matchesSearch && matchesStatus && matchesTable;
@@ -50,7 +55,6 @@ const WaiterPage = () => {
     order.status === 'paid'
   );
 
-  // Orders with ready items that need to be served
   const ordersWithReadyItems = orders.filter(order => 
     order.items.some(item => item.status === 'ready')
   );
@@ -61,59 +65,28 @@ const WaiterPage = () => {
   };
 
   const handleUpdateItemStatus = (orderId: string, itemId: string, newStatus: ItemStatus) => {
-    setOrders(orders.map(order => {
-      if (order.id === orderId) {
-        const updatedItems = order.items.map(item => 
-          item.id === itemId ? { ...item, status: newStatus, updatedAt: new Date() } : item
-        );
-        
-        return {
-          ...order,
-          items: updatedItems,
-          updatedAt: new Date()
-        };
-      }
-      return order;
-    }));
-    
-    toast({
-      title: "Item Updated",
-      description: `Item status changed to ${newStatus}`,
-      duration: 2000
-    });
+    updateItemStatus(orderId, itemId, newStatus);
   };
 
   const handleUpdateOrderStatus = (orderId: string, newStatus: OrderStatus) => {
-    setOrders(orders.map(order => 
-      order.id === orderId 
-        ? { ...order, status: newStatus, updatedAt: new Date() } 
-        : order
-    ));
-    
-    toast({
-      title: "Order Updated",
-      description: `Order status changed to ${newStatus}`,
-      duration: 2000
-    });
+    updateOrderStatus(orderId, newStatus);
 
-    // Close the detail modal if the order is now paid
     if (newStatus === 'paid') {
       setIsDetailOpen(false);
     }
   };
 
   const handleCreateNewOrder = () => {
-    const newOrder = generateMockOrders(1)[0];
-    setOrders([newOrder, ...orders]);
+    const newOrderData = {
+      tableNumber: Math.floor(Math.random() * 20) + 1,
+      items: [],
+      status: 'pending' as OrderStatus,
+      totalPrice: 0
+    };
     
-    toast({
-      title: "New Order Created",
-      description: `Table ${newOrder.tableNumber} has placed a new order`,
-      duration: 2000
-    });
+    addOrder(newOrderData);
   };
 
-  // Adapter function to make handleUpdateOrderStatus compatible with OrderCard
   const handleOrderCardStatusChange = (order: Order, newStatus: OrderStatus) => {
     handleUpdateOrderStatus(order.id, newStatus);
   };

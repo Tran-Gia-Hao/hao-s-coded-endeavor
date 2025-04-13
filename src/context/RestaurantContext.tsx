@@ -12,6 +12,7 @@ interface RestaurantContextType {
   updateOrderStatus: (orderId: string, newStatus: OrderStatus) => void;
   addOrder: (order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => void;
   getActiveOrders: () => Order[];
+  lastUpdate: Date | null;
 }
 
 const RestaurantContext = createContext<RestaurantContextType | undefined>(undefined);
@@ -30,17 +31,18 @@ interface RestaurantProviderProps {
 
 export const RestaurantProvider: React.FC<RestaurantProviderProps> = ({ children }) => {
   const [orders, setOrders] = useState<Order[]>(mockOrders);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(new Date());
   const { toast } = useToast();
   
-  // Giả lập polling để kiểm tra cập nhật (trong thực tế sẽ dùng WebSockets hoặc Server-Sent Events)
+  // Simulate real-time updates across the system
   useEffect(() => {
     const interval = setInterval(() => {
-      // Trong thực tế, đây sẽ là một API call để lấy dữ liệu mới
-      console.log("Checking for updates...");
+      // In a real app, this would be replaced with WebSockets or Server-Sent Events
+      console.log("Checking for updates...", lastUpdate);
     }, 5000);
     
     return () => clearInterval(interval);
-  }, []);
+  }, [lastUpdate]);
 
   const updateOrder = (orderId: string, updates: Partial<Order>) => {
     setOrders(prevOrders => 
@@ -50,6 +52,9 @@ export const RestaurantProvider: React.FC<RestaurantProviderProps> = ({ children
           : order
       )
     );
+    
+    // Update the lastUpdate time to trigger reactive updates
+    setLastUpdate(new Date());
     
     toast({
       title: "Đơn hàng đã được cập nhật",
@@ -89,6 +94,9 @@ export const RestaurantProvider: React.FC<RestaurantProviderProps> = ({ children
       })
     );
     
+    // Update the lastUpdate time to trigger reactive updates
+    setLastUpdate(new Date());
+    
     toast({
       title: "Món ăn đã được cập nhật",
       description: `Trạng thái món ăn đã thay đổi thành ${newStatus}`,
@@ -121,6 +129,9 @@ export const RestaurantProvider: React.FC<RestaurantProviderProps> = ({ children
       })
     );
     
+    // Update the lastUpdate time to trigger reactive updates
+    setLastUpdate(new Date());
+    
     toast({
       title: "Trạng thái đơn hàng đã được cập nhật",
       description: `Đơn hàng chuyển sang trạng thái ${newStatus}`,
@@ -137,6 +148,9 @@ export const RestaurantProvider: React.FC<RestaurantProviderProps> = ({ children
     };
     
     setOrders(prevOrders => [...prevOrders, newOrder]);
+    
+    // Update the lastUpdate time to trigger reactive updates
+    setLastUpdate(new Date());
     
     toast({
       title: "Đơn hàng mới đã được tạo",
@@ -157,7 +171,8 @@ export const RestaurantProvider: React.FC<RestaurantProviderProps> = ({ children
     updateItemStatus,
     updateOrderStatus,
     addOrder,
-    getActiveOrders
+    getActiveOrders,
+    lastUpdate
   };
 
   return (

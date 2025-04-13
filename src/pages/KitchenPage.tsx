@@ -3,9 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
 import { Link } from 'react-router-dom';
-import { ArrowLeft, ChefHat, Clock } from 'lucide-react';
+import { ArrowLeft, ChefHat } from 'lucide-react';
 import FilterBar from '@/components/FilterBar';
 import OrderCard from '@/components/OrderCard';
 import OrderDetail from '@/components/OrderDetail';
@@ -13,13 +12,22 @@ import { Order, OrderStatus, ItemStatus } from '@/models/types';
 import { useRestaurantContext } from '@/context/RestaurantContext';
 
 const KitchenPage = () => {
-  const { orders, updateItemStatus, updateOrderStatus } = useRestaurantContext();
+  const { orders, updateItemStatus, updateOrderStatus, lastUpdate } = useRestaurantContext();
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('pending');
   const [tableFilter, setTableFilter] = useState<number | null>(null);
-  const { toast } = useToast();
+
+  // Update selected order when orders change
+  useEffect(() => {
+    if (selectedOrder) {
+      const updatedOrder = orders.find(o => o.id === selectedOrder.id);
+      if (updatedOrder) {
+        setSelectedOrder(updatedOrder);
+      }
+    }
+  }, [orders, selectedOrder, lastUpdate]);
 
   // Only show pending and cooking orders for kitchen staff
   const filteredOrders = orders
@@ -51,49 +59,12 @@ const KitchenPage = () => {
   const handleUpdateItemStatus = (orderId: string, itemId: string, newStatus: ItemStatus) => {
     updateItemStatus(orderId, itemId, newStatus);
     
-    // Cập nhật selectedOrder để UI hiển thị đúng
-    if (selectedOrder && selectedOrder.id === orderId) {
-      const updatedItems = selectedOrder.items.map(item => 
-        item.id === itemId ? { ...item, status: newStatus, updatedAt: new Date() } : item
-      );
-      
-      let newOrderStatus = selectedOrder.status;
-      if (newStatus === 'ready' && updatedItems.every(item => item.status === 'ready')) {
-        newOrderStatus = 'ready';
-      } else if (newStatus === 'cooking' && selectedOrder.status === 'pending') {
-        newOrderStatus = 'cooking';
-      }
-      
-      setSelectedOrder({
-        ...selectedOrder,
-        items: updatedItems,
-        status: newOrderStatus,
-        updatedAt: new Date()
-      });
-    }
+    // UI will auto-update due to context changes and useEffect
   };
 
   const handleUpdateOrderStatus = (orderId: string, newStatus: OrderStatus) => {
     updateOrderStatus(orderId, newStatus);
     
-    // Cập nhật selectedOrder để UI hiển thị đúng
-    if (selectedOrder && selectedOrder.id === orderId) {
-      const updatedItems = selectedOrder.items.map(item => {
-        if ((selectedOrder.status === 'pending' && item.status === 'pending' && newStatus === 'cooking') ||
-            (selectedOrder.status === 'cooking' && item.status === 'cooking' && newStatus === 'ready')) {
-          return { ...item, status: newStatus as ItemStatus, updatedAt: new Date() };
-        }
-        return item;
-      });
-      
-      setSelectedOrder({
-        ...selectedOrder,
-        items: updatedItems,
-        status: newStatus,
-        updatedAt: new Date()
-      });
-    }
-
     // Close the detail modal if the order is now ready
     if (newStatus === 'ready') {
       setIsDetailOpen(false);

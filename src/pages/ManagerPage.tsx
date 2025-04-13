@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -28,15 +27,25 @@ import {
   AreaChart, 
   Area 
 } from 'recharts';
+import { useRestaurantContext } from '@/context/RestaurantContext';
 
 const ManagerPage = () => {
-  const [orders, setOrders] = useState<Order[]>(mockOrders);
+  const { orders, lastUpdate } = useRestaurantContext();
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
   const [tableFilter, setTableFilter] = useState<number | null>(null);
   const [timeRange, setTimeRange] = useState<'day' | 'week' | 'month'>('day');
+
+  useEffect(() => {
+    if (selectedOrder) {
+      const updatedOrder = orders.find(o => o.id === selectedOrder.id);
+      if (updatedOrder) {
+        setSelectedOrder(updatedOrder);
+      }
+    }
+  }, [orders, selectedOrder, lastUpdate]);
 
   const filteredOrders = orders
     .filter(order => {
@@ -61,7 +70,6 @@ const ManagerPage = () => {
     setIsDetailOpen(true);
   };
 
-  // Mock statistics based on time range
   const getStatistics = () => {
     let multiplier = 1;
     if (timeRange === 'week') multiplier = 7;
@@ -77,10 +85,8 @@ const ManagerPage = () => {
 
   const statistics = getStatistics();
 
-  // Chart configurations
   const COLORS = ['#FF9F43', '#1E3A8A', '#FFBC80', '#36B37E'];
 
-  // Order status distribution
   const statusDistribution = [
     { name: 'Pending', value: orders.filter(o => o.status === 'pending').length },
     { name: 'Cooking', value: orders.filter(o => o.status === 'cooking').length },
@@ -89,7 +95,6 @@ const ManagerPage = () => {
     { name: 'Paid', value: orders.filter(o => o.status === 'paid').length }
   ];
 
-  // Popular items chart
   const popularItems = mockDailySummary.popularItems.map(item => ({
     name: item.name,
     value: item.count
