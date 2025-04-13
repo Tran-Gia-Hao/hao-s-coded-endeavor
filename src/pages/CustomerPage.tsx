@@ -253,12 +253,14 @@ const CustomerPage = () => {
       totalPrice = cartItems.reduce((sum, item) => sum + (item.menuItem.price * item.quantity), 0);
     }
 
-    addOrder({
+    const newOrder = {
       tableNumber,
       items: cartItems,
       status: 'pending',
       totalPrice
-    });
+    };
+
+    addOrder(newOrder);
 
     if (menuType === 'buffet') {
       const buffetItem = cartItems.find(item => item.menuItem.category === 'Buffet Package');
@@ -273,7 +275,7 @@ const CustomerPage = () => {
 
     toast({
       title: "Đã đặt món!",
-      description: `Đơn hàng #${newOrder.id.slice(0, 8)} đã được đặt thành công.`,
+      description: `Đơn hàng #${newOrder.id?.slice(0, 8) || 'mới'} đã được đặt thành công.`,
       variant: "default"
     });
   };
