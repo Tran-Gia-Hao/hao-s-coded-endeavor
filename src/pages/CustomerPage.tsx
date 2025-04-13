@@ -55,6 +55,7 @@ const CustomerPage = () => {
     } else {
       const newCartItem: OrderItem = {
         id: uuidv4(),
+        menuItemId: menuItem.id,
         menuItem,
         quantity: 1,
         status: 'pending',
